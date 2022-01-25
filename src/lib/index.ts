@@ -13,9 +13,9 @@ const twApi = axios.create({
 });
 
 const config: AxiosRequestConfig = {
-  headers: {
-    'Accept-Encoding': 'gzip,deflate,br',
-  },
+  //   headers: {
+  //     'Accept-Encoding': 'gzip,deflate,br',
+  //   },
 };
 
 export const getMetadata = async (url: string): Promise<MetaResult | null> => {
