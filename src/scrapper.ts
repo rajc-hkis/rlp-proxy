@@ -1,15 +1,20 @@
-// const puppeteer = require('puppeteer-extra');
-// const pluginStealth = require('puppeteer-extra-plugin-stealth');
+const puppeteer = require('puppeteer-extra');
+const pluginStealth = require('puppeteer-extra-plugin-stealth');
 const util = require('util');
 const request = util.promisify(require('request'));
 
 const urlImageIsAccessible = async (url: string) => {
   try {
-    const urlResponse = await request(url);
+    const urlResponse = await request({
+      rejectUnauthorized: false,
+      url,
+      method: 'GET',
+    });
     const contentType = urlResponse.headers['content-type'];
     console.log('contentType', contentType);
     return new RegExp('image/*').test(contentType);
-  } catch {
+  } catch (error) {
+    console.log('urlResponse', error);
     return false;
   }
 };
@@ -174,13 +179,21 @@ const getSiteName = async (page: any) => {
   }
 };
 
-const scrapper = async (url: string, browser: any) => {
+const scrapper = async (url: string, page: any) => {
   try {
-    const page = await browser.newPage();
+    // puppeteer.use(pluginStealth());
+    // const browser = await puppeteer.launch({
+    //   headless: true,
+    //   args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    // });
+    // console.debug('Puppeteer is created');
 
-    const puppeteerAgent =
-      'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)';
-    page.setUserAgent(puppeteerAgent);
+    // const page = await browser.newPage();
+    // console.debug('Page is created');
+
+    // const puppeteerAgent =
+    //   'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)';
+    // page.setUserAgent(puppeteerAgent);
 
     await page.goto(url);
     console.debug('Page is opened');
@@ -217,7 +230,7 @@ const scrapper = async (url: string, browser: any) => {
       siteName,
     };
 
-    await browser.close();
+    // await browser.close();
     return obj;
   } catch (error) {
     console.log('err', error);

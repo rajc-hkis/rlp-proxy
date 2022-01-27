@@ -47,15 +47,8 @@ const sendResponse = (res: Response, output: APIOutput | null) => {
     .json({ metadata: output });
 };
 
-let browser: any = null;
-app.listen(port, async () => {
+app.listen(port, () => {
   console.log(`Server started on port ${port}`);
-  puppeteer.use(pluginStealth());
-  browser = await puppeteer.launch({
-    headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox'],
-  });
-  console.debug('Puppeteer is created');
 });
 
 app.use(express.static('public'));
@@ -159,8 +152,24 @@ app.get('/v2', async (req, res) => {
   }
 });
 
+let browser: any = undefined;
+let page: any = undefined;
 app.get('/v3', async (req, res) => {
+  // puppeteer.use(pluginStealth());
+
   try {
+    if (!browser) {
+      browser = await puppeteer.launch({
+        headless: true,
+        args: ['--no-sandbox', '--disable-setuid-sandbox'],
+      });
+      console.debug('Puppeteer is created');
+    }
+    page = await browser.newPage();
+    const puppeteerAgent =
+      'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)';
+    page.setUserAgent(puppeteerAgent);
+    console.debug('Page is created');
     let url = req.query.url as unknown as string;
 
     if (!url) {
@@ -185,7 +194,7 @@ app.get('/v3', async (req, res) => {
     }
 
     if (url && isUrlValid) {
-      const response: any = await scrapper(url, browser);
+      const response: any = await scrapper(url, page);
 
       console.debug('response', response);
       sendResponse(res, response);
