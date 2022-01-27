@@ -1,5 +1,5 @@
-const puppeteer = require('puppeteer-extra');
-const pluginStealth = require('puppeteer-extra-plugin-stealth');
+// const puppeteer = require('puppeteer-extra');
+// const pluginStealth = require('puppeteer-extra-plugin-stealth');
 const util = require('util');
 const request = util.promisify(require('request'));
 
@@ -174,15 +174,8 @@ const getSiteName = async (page: any) => {
   }
 };
 
-const scrapper = async (url: string) => {
+const scrapper = async (url: string, browser: any) => {
   try {
-    puppeteer.use(pluginStealth());
-    const browser = await puppeteer.launch({
-      headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
-    });
-    console.debug('Puppeteer is created');
-
     const page = await browser.newPage();
 
     const puppeteerAgent =

@@ -6,6 +6,9 @@ import { checkForCache, createCache } from './lib/cache';
 import { APIOutput } from './types';
 import scrapper from './scrapper';
 
+const puppeteer = require('puppeteer-extra');
+const pluginStealth = require('puppeteer-extra-plugin-stealth');
+
 const app = express();
 
 const port = Number(process.env.PORT || 8080);
@@ -44,8 +47,15 @@ const sendResponse = (res: Response, output: APIOutput | null) => {
     .json({ metadata: output });
 };
 
-app.listen(port, () => {
+let browser: any = null;
+app.listen(port, async () => {
   console.log(`Server started on port ${port}`);
+  puppeteer.use(pluginStealth());
+  browser = await puppeteer.launch({
+    headless: true,
+    args: ['--no-sandbox', '--disable-setuid-sandbox'],
+  });
+  console.debug('Puppeteer is created');
 });
 
 app.use(express.static('public'));
@@ -175,7 +185,7 @@ app.get('/v3', async (req, res) => {
     }
 
     if (url && isUrlValid) {
-      const response: any = await scrapper(url);
+      const response: any = await scrapper(url, browser);
 
       console.debug('response', response);
       sendResponse(res, response);
