@@ -1,8 +1,10 @@
 require('dotenv').config();
+import axios from 'axios';
 import express, { Response } from 'express';
 import { getMetadata } from './lib';
 import { checkForCache, createCache } from './lib/cache';
 import { APIOutput } from './types';
+import scrapper from './scrapper';
 
 const app = express();
 
@@ -143,6 +145,45 @@ app.get('/v2', async (req, res) => {
     return res.set('Access-Control-Allow-Origin', '*').status(500).json({
       error:
         'Internal server error. Please open a Github issue or contact me on Twitter @dhaiwat10 if the issue persists.',
+    });
+  }
+});
+
+app.get('/v3', async (req, res) => {
+  try {
+    let url = req.query.url as unknown as string;
+
+    if (!url) {
+      return res
+        .set('Access-Control-Allow-Origin', '*')
+        .status(400)
+        .json({ error: 'Invalid URL' });
+    }
+
+    url = url.indexOf('://') === -1 ? 'http://' + url : url;
+
+    const isUrlValid =
+      /[(http(s)?):\/\/(www\.)?a-zA-Z0-9@:%._\+~#=]{2,256}\.[a-z]{2,6}\b([-a-zA-Z0-9@:%_\+.~#?&//=]*)/gi.test(
+        url
+      );
+
+    if (!url || !isUrlValid) {
+      return res
+        .set('Access-Control-Allow-Origin', '*')
+        .status(400)
+        .json({ error: 'Invalid URL' });
+    }
+
+    if (url && isUrlValid) {
+      const response: any = await scrapper(url);
+
+      console.debug('response', response);
+      sendResponse(res, response);
+    }
+  } catch (error) {
+    console.log('Got error', error);
+    return res.set('Access-Control-Allow-Origin', '*').status(500).json({
+      error: 'Internal server error.',
     });
   }
 });
