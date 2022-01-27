@@ -179,7 +179,7 @@ const scrapper = async (url: string) => {
     puppeteer.use(pluginStealth());
     const browser = await puppeteer.launch({
       headless: true,
-      args: [],
+      args: ['--no-sandbox', '--disable-setuid-sandbox'],
     });
     console.debug('Puppeteer is created');
 
