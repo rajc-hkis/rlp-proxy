@@ -184,7 +184,6 @@ const scrapper = async (url: string) => {
     console.debug('Puppeteer is created');
 
     const page = await browser.newPage();
-    console.debug('Page is created');
 
     const puppeteerAgent =
       'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)';
