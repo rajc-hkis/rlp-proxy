@@ -5,9 +5,14 @@ import { getMetadata } from './lib';
 import { checkForCache, createCache } from './lib/cache';
 import { APIOutput } from './types';
 import scrapper from './scrapper';
+import { scrapAllData } from './lib/helper';
+import { parse } from 'node-html-parser';
 
 const puppeteer = require('puppeteer-extra');
 const pluginStealth = require('puppeteer-extra-plugin-stealth');
+
+const NodeCache = require('node-cache');
+const cache = new NodeCache({ stdTTL: 10 * 60 * 60 * 24 });
 
 const app = express();
 
@@ -33,7 +38,12 @@ const port = Number(process.env.PORT || 8080);
 //   expire: 1000 * 60,
 // });
 
-const sendResponse = (res: Response, output: APIOutput | null) => {
+const sendResponse = (
+  res: Response,
+  output: APIOutput | null,
+  url?: string,
+  fromCache?: boolean
+) => {
   if (!output) {
     return res
       .set('Access-Control-Allow-Origin', '*')
@@ -41,14 +51,24 @@ const sendResponse = (res: Response, output: APIOutput | null) => {
       .json({ metadata: null });
   }
 
+  if (fromCache !== true) {
+    cache.set(url, JSON.stringify(output));
+  }
   return res
     .set('Access-Control-Allow-Origin', '*')
     .status(200)
     .json({ metadata: output });
 };
 
-app.listen(port, () => {
+let browser: any = undefined;
+
+app.listen(port, async () => {
   console.log(`Server started on port ${port}`);
+  browser = await puppeteer.launch({
+    headless: true,
+    args: ['--no-sandbox', '--disable-setuid-sandbox'],
+  });
+  console.debug('Puppeteer is created');
 });
 
 app.use(express.static('public'));
@@ -130,7 +150,7 @@ app.get('/v2', async (req, res) => {
         hostname,
       };
 
-      sendResponse(res, output);
+      sendResponse(res, output, url);
 
       //   if (output) {
       //     await createCache({
@@ -152,25 +172,50 @@ app.get('/v2', async (req, res) => {
   }
 });
 
-let browser: any = undefined;
 let page: any = undefined;
 app.get('/v3', async (req, res) => {
   // puppeteer.use(pluginStealth());
 
   try {
-    if (!browser) {
-      browser = await puppeteer.launch({
-        headless: true,
-        args: ['--no-sandbox', '--disable-setuid-sandbox'],
-      });
-      console.debug('Puppeteer is created');
+    let url = req.query.url as unknown as string;
+
+    const dataFromCache = cache.get(url);
+
+    if (typeof dataFromCache !== 'undefined') {
+      const response = JSON.parse(dataFromCache);
+      sendResponse(res, response, url, true);
+      return;
     }
+
+    try {
+      const { data } = await axios(url);
+      if (!data) {
+        throw new Error('Failed to do fetch request');
+      }
+
+      const document: any = parse(data);
+      const response: any = scrapAllData(document, url);
+      console.log('response', response);
+      if (
+        response?.title &&
+        response?.description &&
+        response?.domain &&
+        response?.img &&
+        response?.favicon &&
+        response?.siteName
+      ) {
+        sendResponse(res, response, url);
+        return;
+      }
+    } catch (err) {
+      console.log('error', err);
+    }
+
     page = await browser.newPage();
     const puppeteerAgent =
       'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)';
     page.setUserAgent(puppeteerAgent);
     console.debug('Page is created');
-    let url = req.query.url as unknown as string;
 
     if (!url) {
       return res
@@ -197,7 +242,7 @@ app.get('/v3', async (req, res) => {
       const response: any = await scrapper(url, page);
 
       console.debug('response', response);
-      sendResponse(res, response);
+      sendResponse(res, response, url);
     }
   } catch (error) {
     console.log('Got error', error);

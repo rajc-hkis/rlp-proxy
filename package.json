@@ -30,6 +30,8 @@
     "express": "^4.17.1",
     "express-limiter": "^1.6.1",
     "html-metadata-parser": "2.0.2",
+    "node-cache": "^5.1.2",
+    "node-html-parser": "^5.2.0",
     "puppeteer": "^13.1.2",
     "puppeteer-extra": "^3.2.3",
     "puppeteer-extra-plugin-stealth": "^2.9.0",

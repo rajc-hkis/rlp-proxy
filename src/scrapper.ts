@@ -61,10 +61,11 @@ const getImg = async (page: any, uri: string) => {
       return null;
     });
 
-    const isImageThere = await urlImageIsAccessible(img);
-    console.log('Found Image', img);
-    if (isImageThere) return img;
-    else return '';
+    // const isImageThere = await urlImageIsAccessible(img);
+    // console.log('Found Image', img);
+    // if (isImageThere) return img;
+    // else return '';
+    return img;
   } catch {
     return '';
   }
@@ -179,6 +180,132 @@ const getSiteName = async (page: any) => {
   }
 };
 
+const scrapAllData = async (page: any, uri: string) => {
+  const data = await page.evaluate(() => {
+    let title, description, domain, img, favicon, siteName;
+
+    // --------------------------------------------------------------------------------------
+
+    const ogTitle: any = document.querySelector('meta[property="og:title"]');
+    const docTitle = document.title;
+    const h1 = document.querySelector('h1')?.innerHTML;
+    const h2 = document.querySelector('h2')?.innerHTML;
+
+    if (ogTitle != null && ogTitle.content.length > 0) {
+      title = ogTitle.content;
+    } else if (docTitle != null && docTitle.length > 0) {
+      title = docTitle;
+    } else if (h1 != null && h1.length > 0) {
+      title = h1;
+    } else if (h2 != null && h2.length > 0) {
+      title = h2;
+    } else {
+      title = null;
+    }
+
+    // --------------------------------------------------------------------------------------
+
+    const canonicalLink: any = document.querySelector('link[rel=canonical]');
+    const ogUrlMeta: any = document.querySelector('meta[property="og:url"]');
+
+    if (canonicalLink != null && canonicalLink.href.length > 0) {
+      domain = canonicalLink.href;
+    } else if (ogUrlMeta != null && ogUrlMeta.content.length > 0) {
+      domain = ogUrlMeta.content;
+    } else {
+      domain = null;
+    }
+    domain =
+      domain != null
+        ? new URL(domain).hostname.replace('www.', '')
+        : new URL(uri).hostname.replace('www.', '');
+
+    // --------------------------------------------------------------------------------------
+
+    const ogDescription: any = document.querySelector(
+      'meta[property="og:description"]'
+    );
+    const metaDescription: any = document.querySelector(
+      'meta[name="description"]'
+    );
+
+    if (ogDescription != null && ogDescription.content.length > 0) {
+      description = ogDescription.content;
+    } else if (metaDescription != null && metaDescription.content.length > 0) {
+      description = metaDescription.content;
+    }
+
+    // --------------------------------------------------------------------------------------
+
+    const ogSecureImg: any = document.querySelector(
+      'meta[property="og:image:secure_url"]'
+    );
+    const ogImg: any = document.querySelector('meta[property="og:image"]');
+    let imgs = Array.from(document.getElementsByTagName('img'));
+
+    if (ogSecureImg != null && ogSecureImg.content.length > 0) {
+      if (
+        /[(http(s)?):\/\/(www\.)?a-zA-Z0-9@:%._\+~#=]{2,256}\.[a-z]{2,6}\b([-a-zA-Z0-9@:%_\+.~#?&//=]*)/gi.test(
+          ogSecureImg.content
+        )
+      )
+        img = ogSecureImg.content;
+    } else if (ogImg != null && ogImg.content.length > 0) {
+      if (
+        /[(http(s)?):\/\/(www\.)?a-zA-Z0-9@:%._\+~#=]{2,256}\.[a-z]{2,6}\b([-a-zA-Z0-9@:%_\+.~#?&//=]*)/gi.test(
+          ogImg.content
+        )
+      )
+        img = ogImg.content;
+    } else if (imgs.length > 0) {
+      imgs.forEach((img) =>
+        img.src.indexOf('//') === -1
+          ? (img.src = `${new URL(uri).origin}/${img.src}`)
+          : img.src
+      );
+      if (
+        /[(http(s)?):\/\/(www\.)?a-zA-Z0-9@:%._\+~#=]{2,256}\.[a-z]{2,6}\b([-a-zA-Z0-9@:%_\+.~#?&//=]*)/gi.test(
+          imgs[0].src
+        )
+      )
+        img = imgs[0].src;
+    } else {
+      img = null;
+    }
+
+    // --------------------------------------------------------------------------------------
+
+    const shortcutIcon: any = document.querySelector(
+      'link[rel="shortcut icon"]'
+    );
+    const fav: any = document.querySelector('link[rel="icon"]');
+
+    if (shortcutIcon) {
+      favicon = shortcutIcon.href;
+    } else if (fav) {
+      favicon = fav.href;
+    }
+
+    // --------------------------------------------------------------------------------------
+
+    const name: any = document.querySelector('meta[property="og:site_name"]');
+    if (name?.content) {
+      siteName = name?.content;
+    }
+
+    return {
+      title,
+      description,
+      domain,
+      img,
+      favicon,
+      siteName,
+    };
+  });
+
+  return data;
+};
+
 const scrapper = async (url: string, page: any) => {
   try {
     // puppeteer.use(pluginStealth());
@@ -195,43 +322,59 @@ const scrapper = async (url: string, page: any) => {
     //   'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)';
     // page.setUserAgent(puppeteerAgent);
 
-    await page.goto(url);
+    await page.goto(url, { waitUntil: 'domcontentloaded' });
     console.debug('Page is opened');
 
     await page.exposeFunction('request', request);
     await page.exposeFunction('urlImageIsAccessible', urlImageIsAccessible);
 
-    console.group();
-    const title = await getTitle(page);
-    console.log('title', title);
+    await page.setRequestInterception(true);
 
-    const description = await getDescription(page);
-    console.log('description', description);
+    page.on('request', (req: any) => {
+      console.log('req.resourceType()', req.resourceType());
+      if (req.resourceType() === 'image' || req.resourceType() === 'font') {
+        req.abort();
+      } else {
+        req.continue();
+      }
+    });
 
-    const domain = await getDomainName(page, url);
-    console.log('domain', domain);
+    // console.group();
+    // const title = await getTitle(page);
+    // console.log('title', title);
 
-    const img = await getImg(page, url);
-    console.log('img', img);
+    // const description = await getDescription(page);
+    // console.log('description', description);
 
-    const favicon = await getFavicon(page);
-    console.log('favicon', favicon);
+    // const domain = await getDomainName(page, url);
+    // console.log('domain', domain);
 
-    const siteName = await getSiteName(page);
-    console.log('siteName', siteName);
-    console.groupEnd();
+    // const img = await getImg(page, url);
+    // console.log('img', img);
 
-    const obj = {
-      title,
-      description,
-      domain,
-      img,
-      favicon,
-      siteName,
-    };
+    // const favicon = await getFavicon(page);
+    // console.log('favicon', favicon);
 
-    // await browser.close();
-    return obj;
+    // const siteName = await getSiteName(page);
+    // console.log('siteName', siteName);
+    // console.groupEnd();
+
+    const finalData = await scrapAllData(page, url);
+    // console.log('finalData', finalData);
+
+    // const obj = {
+    //   title,
+    //   description,
+    //   domain,
+    //   img,
+    //   favicon,
+    //   siteName,
+    // };
+
+    await page.close();
+    // return obj;
+    // cache.set(url, JSON.stringify(finalData));
+    return finalData;
   } catch (error) {
     console.log('err', error);
     throw error;
