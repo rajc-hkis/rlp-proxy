@@ -166,8 +166,7 @@ app.get('/v2', async (req, res) => {
   } catch (error) {
     console.log(error);
     return res.set('Access-Control-Allow-Origin', '*').status(500).json({
-      error:
-        'Internal server error. Please open a Github issue or contact me on Twitter @dhaiwat10 if the issue persists.',
+      error: 'Internal server error.',
     });
   }
 });
