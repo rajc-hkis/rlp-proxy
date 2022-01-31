@@ -12,7 +12,7 @@ const puppeteer = require('puppeteer-extra');
 const pluginStealth = require('puppeteer-extra-plugin-stealth');
 
 const NodeCache = require('node-cache');
-const cache = new NodeCache({ stdTTL: 10 * 60 * 60 * 24 });
+const cache = new NodeCache({ stdTTL: 7 * 60 * 60 * 24 });
 
 const app = express();
 
